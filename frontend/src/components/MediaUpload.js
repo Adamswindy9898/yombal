@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 
 const API_URL = 'http://127.0.0.1:8000/api';
@@ -8,24 +8,43 @@ export default function MediaUpload({ typeBien, bienId, label }) {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
 
-  const load = () => {
+  // ✅ FIX ESLINT: useCallback pour stabiliser la fonction
+  const load = useCallback(() => {
     if (!bienId) return;
-    axios.get(`${API_URL}/media/${typeBien}/${bienId}`).then(r => setMedias(r.data));
-  };
+    axios
+      .get(`${API_URL}/media/${typeBien}/${bienId}`)
+      .then(r => setMedias(r.data))
+      .catch(err => console.error(err));
+  }, [bienId, typeBien]);
 
-  useEffect(() => { load(); }, [bienId]);
+  // ✅ FIX useEffect dependency
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
+
     setUploading(true);
-    for (const file of files) {
-      const form = new FormData();
-      form.append('file', file);
-      await axios.post(`${API_URL}/media/upload/${typeBien}/${bienId}`, form, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+
+    try {
+      for (const file of files) {
+        const form = new FormData();
+        form.append('file', file);
+
+        await axios.post(
+          `${API_URL}/media/upload/${typeBien}/${bienId}`,
+          form,
+          {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          }
+        );
+      }
+    } catch (err) {
+      console.error(err);
     }
+
     setUploading(false);
     load();
   };
@@ -38,33 +57,121 @@ export default function MediaUpload({ typeBien, bienId, label }) {
   };
 
   return (
-    <div style={{marginTop:16}}>
-      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
-        <div style={{fontSize:13, fontWeight:600, color:'#555'}}>📸 {label || 'Photos & Vidéos'}</div>
-        <button className="btn btn-sm" style={{background:'#e0f2fe', color:'#0369a1'}}
-          onClick={() => fileRef.current.click()} disabled={uploading}>
+    <div style={{ marginTop: 16 }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#555' }}>
+          📸 {label || 'Photos & Vidéos'}
+        </div>
+
+        <button
+          className="btn btn-sm"
+          style={{ background: '#e0f2fe', color: '#0369a1' }}
+          onClick={() => fileRef.current.click()}
+          disabled={uploading}
+        >
           {uploading ? '⏳ Upload...' : '+ Ajouter'}
         </button>
-        <input ref={fileRef} type="file" multiple accept="image/*,video/*" style={{display:'none'}} onChange={handleUpload} />
+
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          accept="image/*,video/*"
+          style={{ display: 'none' }}
+          onChange={handleUpload}
+        />
       </div>
+
       {medias.length === 0 && (
-        <div style={{textAlign:'center', padding:'20px', background:'#f9fafb', borderRadius:8, fontSize:12, color:'#aaa', border:'2px dashed #e5e7eb'}}>
+        <div style={{
+          textAlign: 'center',
+          padding: '20px',
+          background: '#f9fafb',
+          borderRadius: 8,
+          fontSize: 12,
+          color: '#aaa',
+          border: '2px dashed #e5e7eb'
+        }}>
           Aucun média — cliquez sur "+ Ajouter"
         </div>
       )}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(120px, 1fr))', gap:8}}>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+        gap: 8
+      }}>
         {medias.map(m => (
-          <div key={m.id} style={{position:'relative', borderRadius:8, overflow:'hidden', background:'#f0f0f0'}}>
+          <div
+            key={m.id}
+            style={{
+              position: 'relative',
+              borderRadius: 8,
+              overflow: 'hidden',
+              background: '#f0f0f0'
+            }}
+          >
             {m.type_fichier === 'photo' ? (
-              <img src={m.url} alt="" style={{width:'100%', height:100, objectFit:'cover', display:'block'}} />
+              <img
+                src={m.url}
+                alt=""
+                style={{
+                  width: '100%',
+                  height: 100,
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
+              />
             ) : (
-              <video src={m.url} style={{width:'100%', height:100, objectFit:'cover', display:'block'}} controls />
+              <video
+                src={m.url}
+                style={{
+                  width: '100%',
+                  height: 100,
+                  objectFit: 'cover',
+                  display: 'block'
+                }}
+                controls
+              />
             )}
-            <button onClick={() => handleDelete(m.id)}
-              style={{position:'absolute', top:4, right:4, background:'rgba(0,0,0,0.6)', color:'white', border:'none', borderRadius:'50%', width:22, height:22, cursor:'pointer', fontSize:12, lineHeight:'22px', padding:0}}>
+
+            <button
+              onClick={() => handleDelete(m.id)}
+              style={{
+                position: 'absolute',
+                top: 4,
+                right: 4,
+                background: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: 22,
+                height: 22,
+                cursor: 'pointer',
+                fontSize: 12,
+                lineHeight: '22px',
+                padding: 0
+              }}
+            >
               ✕
             </button>
-            <div style={{position:'absolute', bottom:0, left:0, right:0, background:'rgba(0,0,0,0.5)', color:'white', fontSize:10, padding:'2px 6px', textAlign:'center'}}>
+
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'rgba(0,0,0,0.5)',
+              color: 'white',
+              fontSize: 10,
+              padding: '2px 6px',
+              textAlign: 'center'
+            }}>
               {m.type_fichier === 'photo' ? '📸' : '🎥'}
             </div>
           </div>
